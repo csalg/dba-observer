@@ -5,4 +5,4 @@ COPY . .
 RUN npm install; npm install -g typescript
 RUN tsc
 
-CMD ["node", '/app/dist/scrape.js']
+CMD node /app/dist/scrape.js
