@@ -1,7 +1,7 @@
 export class House {
     private constructor(
-        readonly id,
-        private properties,
+        readonly id : string,
+        private properties : HouseProperties,
         ){
             if (properties.price < 0 ||
                 properties.deposit < 0 ||
@@ -48,4 +48,12 @@ export interface HouseProperties {
 enum HouseState {
     Inactive = "INACTIVE",
     Active = "ACTIVE"
+}
+
+
+export interface IHouseDAO {
+    add(house: House): void
+    addMany(houses: Array<House>): void
+    update(house: House) : void
+    updateMany(houses: Array<House>)
 }
