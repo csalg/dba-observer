@@ -1,6 +1,6 @@
 export class House {
     private constructor(
-        private readonly id,
+        readonly id,
         private properties,
         ){
             if (properties.price < 0 ||
@@ -17,13 +17,17 @@ export class House {
             }
     }
 
-    updateLastSeenTimestamp(){
-        this.properties.lastSeenTimestamp = Date.now()
+    updateLastSeenTimestamp(timestamp: number) {
+        if (!(this.properties.lastSeenTimestamp < timestamp)) {
+            throw "Cannot update timestamp with an older timestamp!"
+        }
+        this.properties.lastSeenTimestamp = timestamp;
     }
 
     deactivate(){
         this.properties.state = HouseState.Inactive;
     }
+
 }
 
 export interface HouseProperties {
