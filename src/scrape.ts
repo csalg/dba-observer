@@ -1,30 +1,47 @@
-import {House} from "./domain/House";
+import {House, HouseProperties, HouseState, IHouseDAO} from "./domain/House";
 import XRay from 'x-ray';
+import {HouseSQLDAO} from "./db";
+import config from "./config";
+import moment from "moment";
+
+
 const x = XRay()
 
 const main = async () => {
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+    while (true){
+        await mainProcedure(null).then(() => console.log("Done"))
+        await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
+    }
+}
+
+
+const mainProcedure = async (dao: IHouseDAO) => {
+    if (!dao) {
+        dao = new HouseSQLDAO()
+    }
     const scrapedLinks: Array<string> = await scrapeLinksFromDba()
-    const activeHouses : Array<House> = []
+    const activeHouses : Array<House> = await dao.findActive()
     const currentTimestamp = Date.now()
 
     const scrapedLinksToUnseenHouses: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHouses)
-    const newHouses = await createHousesFromLinks(scrapedLinksToUnseenHouses)
-    console.log(newHouses)
+    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, scrapedLinksToUnseenHouses)
+    console.log(`Houses currently on dba ${scrapedLinks.length}, active houses ${activeHouses.length}, new houses: ${newHouses.length}`)
+    dao.addMany(newHouses)
 
     makeHousesWithOldTimestampInactive(currentTimestamp, activeHouses)
 }
 
 
 const scrapeLinksFromDba = async () => {
-    const response = await x('https://www.dba.dk/boliger/lejebolig/lejelejlighed/antalvaerelser-2/?pris=(4000-8000)&soegfra=2860&radius=7', '.dbaListing', [
+    const response = await x(config.DBA_PAGE_URL, '.dbaListing', [
         {
             link: '.mainContent>.listingLink@href',
         }
     ])
         .paginate('.pagination-right>ul>li:last-child>a@href')
-        .limit(100)
+        .limit(config.MAX_PAGES_TO_PARSE)
     return response.map(scrapedLink => scrapedLink.link)
-
 }
 
 
@@ -34,10 +51,15 @@ const findLinksNotInActiveHouses = (links: Array<string>, houses: Array<House>) 
     })
 
 
-const createHousesFromLinks = async links => await Promise.all(links.map(async url => {
-    const tableSelector = (x:number,y:number) => `table.table>tbody>tr:nth-child(${x})>td:nth-child(${y})`
+const createHousesFromLinks= async (timestamp, links) => {
+    const dataFromHousePagesArr = await scrapeDataFromHousePages(links)
+    return dataFromHousePagesArr.map(scrapedData => createHouseFromScrapedData(timestamp, scrapedData))
+}
 
-    return await x(url, "#content", {
+
+const scrapeDataFromHousePages = async links => await Promise.all(links.map(async url => {
+    const tableSelector = (x:number,y:number) => `table.table>tbody>tr:nth-child(${x})>td:nth-child(${y})`
+    const result = await x(url, "#content", {
             title:       ".vip-heading>.row-fluid>h1",
             description: ".vip-additional-text",
             created:     ".heading-small",
@@ -48,8 +70,40 @@ const createHousesFromLinks = async links => await Promise.all(links.map(async u
             rooms:       tableSelector(4, 2),
             squareMeters: tableSelector(5, 2),
         })
+    result.url = url
+    return result
     }
 ))
+
+
+const createHouseFromScrapedData = (timestamp, scrapedData) => {
+    const properties: HouseProperties = {
+        address: scrapedData.address,
+        created: createdStringToDate(scrapedData.created),
+        description: scrapedData.description,
+        firstSeenTimestamp: timestamp,
+        lastSeenTimestamp: timestamp,
+        postcode: parseInt(scrapedData.postcode),
+        price: parseInt(scrapedData.price.replace(" kr.", "")),
+        deposit: parseInt(scrapedData.deposit.replace(".", "")),
+        rooms: parseInt(scrapedData.rooms),
+        squareMeters: parseInt(scrapedData.squareMeters),
+        state: HouseState.Active,
+        title: scrapedData.title,
+    }
+    return new House(scrapedData.url, properties)
+}
+
+
+const createdStringToDate = (createdString) => {
+    const parsableString = createdString
+        .replace("kl.", new Date().getFullYear().toString())
+        .replace(". ", " ")
+        .replace(".", ":")
+    let result = moment(parsableString);
+    // Edge case, what if it was published last year?
+    return result.unix()
+}
 
 
 const makeHousesWithOldTimestampInactive = (currentTimestamp, activeHouses) => {
@@ -57,5 +111,4 @@ const makeHousesWithOldTimestampInactive = (currentTimestamp, activeHouses) => {
     housesNoLongerOnline.forEach(house => house.deactivate())
 }
 
-
-main().then(() => console.log("Done"))
+main()

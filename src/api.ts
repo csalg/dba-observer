@@ -1,7 +1,8 @@
 import express from 'express';
 
-const api = express();
-const port = 3000;
+const api = express()
+    , port = 3000;
+
 api.get('/', (req, res) => {
     res.send('There will be houses here one day...');
 });

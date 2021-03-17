@@ -1,31 +1,35 @@
 export class House {
-    private constructor(
+    constructor(
         readonly id : string,
-        private properties : HouseProperties,
+        private _properties : HouseProperties,
         ){
-            if (properties.price < 0 ||
-                properties.deposit < 0 ||
-                properties.rooms < 0 ||
-                properties.squareMeters < 0 ||
-                properties.firstSeenTimestamp < 0 ||
-                properties.lastSeenTimestamp < 0
+            if (_properties.price < 0 ||
+                _properties.deposit < 0 ||
+                _properties.rooms < 0 ||
+                _properties.squareMeters < 0 ||
+                _properties.firstSeenTimestamp < 0 ||
+                _properties.lastSeenTimestamp < 0
             ){
                 throw "Invalid values found!"
             }
-            if (!(1000 <= properties.postcode && properties.postcode < 10000 )){
+            if (!(1000 <= _properties.postcode && _properties.postcode < 10000 )){
                 throw "Postcode should be between 1000 and 10000"
             }
     }
 
-    updateLastSeenTimestamp(timestamp: number) {
-        if (!(this.properties.lastSeenTimestamp < timestamp)) {
+    updateLastSeenTimestamp(newTimestamp: number) {
+        if (!(this._properties.lastSeenTimestamp < newTimestamp)) {
             throw "Cannot update timestamp with an older timestamp!"
         }
-        this.properties.lastSeenTimestamp = timestamp;
+        this._properties.lastSeenTimestamp = newTimestamp;
     }
 
     deactivate(){
-        this.properties.state = HouseState.Inactive;
+        this._properties.state = HouseState.Inactive;
+    }
+
+    get properties(){
+        return this._properties
     }
 
 }
@@ -45,15 +49,16 @@ export interface HouseProperties {
     lastSeenTimestamp: number
 }
 
-enum HouseState {
+export enum HouseState {
     Inactive = "INACTIVE",
     Active = "ACTIVE"
 }
 
 
 export interface IHouseDAO {
-    add(house: House): void
+    add(house: House): Promise<void>
     addMany(houses: Array<House>): void
     update(house: House) : void
     updateMany(houses: Array<House>)
+    findActive(): Promise<Array<House>>
 }
