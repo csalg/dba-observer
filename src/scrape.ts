@@ -12,6 +12,7 @@ const main = async () => {
     while (true){
         await mainProcedure(null).then(() => console.log("Done"))
         await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
+        console.log("Finished waiting")
     }
 }
 
@@ -77,9 +78,14 @@ const scrapeDataFromHousePages = async links => await Promise.all(links.map(asyn
 
 
 const createHouseFromScrapedData = (timestamp, scrapedData) => {
+    let created = timestamp;
+    try {
+        created = createdStringToDate(scrapedData.created)
+    } catch(err) {}
+    
     const properties: HouseProperties = {
         address: scrapedData.address,
-        created: createdStringToDate(scrapedData.created),
+        created: created,
         description: scrapedData.description,
         firstSeenTimestamp: timestamp,
         lastSeenTimestamp: timestamp,
@@ -101,7 +107,6 @@ const createdStringToDate = (createdString) => {
         .replace(". ", " ")
         .replace(".", ":")
     let result = moment(parsableString);
-    // Edge case, what if it was published last year?
     return result.unix()
 }
 
