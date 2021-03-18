@@ -82,7 +82,7 @@ const createHouseFromScrapedData = (timestamp, scrapedData) => {
     try {
         created = createdStringToDate(scrapedData.created)
     } catch(err) {}
-    
+
     const properties: HouseProperties = {
         address: scrapedData.address,
         created: created,
