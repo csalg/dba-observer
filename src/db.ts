@@ -9,7 +9,7 @@ export class HouseSQLDAO implements IHouseDAO {
     constructor() {
         this.connection = new Sequelize({
             dialect: 'sqlite',
-            storage: config.PATH
+            storage: config.DB_PATH
         })
         this.table = this.connection.define("house", houseSchema)
         this.connection.sync({})
