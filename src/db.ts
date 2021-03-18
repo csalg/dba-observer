@@ -1,6 +1,7 @@
 import {House, HouseState, IHouseDAO} from "./domain/House";
 import {Sequelize, DataTypes} from "sequelize";
 import config from "./config";
+import * as assert from "assert";
 
 export class HouseSQLDAO implements IHouseDAO {
     private connection: Sequelize;
@@ -16,6 +17,9 @@ export class HouseSQLDAO implements IHouseDAO {
 
         this.add = this.add.bind(this)
         this.addMany = this.addMany.bind(this)
+        this.findActive = this.findActive.bind(this)
+        this.update = this.update.bind(this)
+        this.updateMany = this.updateMany.bind(this)
     }
 
 
@@ -33,18 +37,30 @@ export class HouseSQLDAO implements IHouseDAO {
         return {id: house.id, ...house.properties}
     }
 
-    addMany(houses: Array<House>): void {
-        houses.map(this.add)
+    async addMany(houses: Array<House>): Promise<void> {
+        console.log("Will addMany houses")
+        await Promise.all(houses.map(this.add))
     }
 
-    update(house: House): void {
+    async update(house: House): Promise<void> {
+        if (!this.table){
+            throw "Table is undefined!"
+        }
+        console.log(`Updating house with id ${house.id}`)
+        const tuple = HouseSQLDAO.houseToTuple(house)
+        console.log(tuple)
+        this.table.update(tuple, {where: {id:tuple.id}})
+        console.log(`Updated`)
     }
 
-    updateMany(houses: Array<House>) {
+    async updateMany(houses: Array<House>): Promise<void> {
+        await Promise.all(houses.map(this.update))
+        
     }
 
     async findActive(): Promise<House[]> {
         const queryResults = await this.table.findAll({where: {state: HouseState.Active}})
+        console.log(`Query returned ${queryResults.length} results`)
         const houses = queryResults.map(result => HouseSQLDAO.tupleToHouse(result.dataValues))
         return houses
     }
@@ -57,8 +73,6 @@ export class HouseSQLDAO implements IHouseDAO {
     }
 }
 
-const STRING = {type: DataTypes.STRING}
-    , INTEGER = {type: DataTypes.INTEGER}
 const houseSchema = {
     id: {type: DataTypes.STRING, primaryKey: true},
     title: {type: DataTypes.STRING},

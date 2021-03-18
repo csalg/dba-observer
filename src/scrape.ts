@@ -10,11 +10,11 @@ const x = XRay()
 const main = async () => {
     const delay = ms => new Promise(res => setTimeout(res, ms));
     while (true){
-        await mainProcedure(null).then(() => console.log("Done"))
+        await mainProcedure(null)
         await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
-        console.log("Finished waiting")
     }
 }
+
 
 
 const mainProcedure = async (dao: IHouseDAO) => {
@@ -22,15 +22,22 @@ const mainProcedure = async (dao: IHouseDAO) => {
         dao = new HouseSQLDAO()
     }
     const scrapedLinks: Array<string> = await scrapeLinksFromDba()
-    const activeHouses : Array<House> = await dao.findActive()
+    const activeHousesOnDb : Array<House> = await dao.findActive()
     const currentTimestamp = Date.now()
+    updateTimestampIfHouseInLinks(currentTimestamp, scrapedLinks, activeHousesOnDb)
+    console.log(`Current timestamps ${activeHousesOnDb.map(house => house.properties.lastSeenTimestamp)}`)
 
-    const scrapedLinksToUnseenHouses: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHouses)
+    const scrapedLinksToUnseenHouses: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
     const newHouses: House[] = await createHousesFromLinks(currentTimestamp, scrapedLinksToUnseenHouses)
-    console.log(`Houses currently on dba ${scrapedLinks.length}, active houses ${activeHouses.length}, new houses: ${newHouses.length}`)
-    dao.addMany(newHouses)
+    console.log(`Houses currently on dba ${scrapedLinks.length}, active houses ${activeHousesOnDb.length}, new houses: ${newHouses.length}`)
+    console.log("Will add new houses")
+    await dao.addMany(newHouses)
+    console.log(`Added ${newHouses.length} new houses`)
 
-    makeHousesWithOldTimestampInactive(currentTimestamp, activeHouses)
+    const housesNoLongerOnline : House[]= findHousesWhichAreNoLongerOnline(currentTimestamp, activeHousesOnDb)
+    housesNoLongerOnline.forEach(house => house.deactivate())
+    console.log(`Will deactivate ${housesNoLongerOnline.length} houses no longer online`)
+    await dao.updateMany(housesNoLongerOnline)
 }
 
 
@@ -45,6 +52,15 @@ const scrapeLinksFromDba = async () => {
     return response.map(scrapedLink => scrapedLink.link)
 }
 
+function updateTimestampIfHouseInLinks(currentTimestamp: number, links: string[], activeHouses: Array<House>) {
+    activeHouses.forEach(house => {
+        const filteredLinks = links.filter(link => link === house.id)
+        if (filteredLinks.length){
+            console.log("Found house no longer online")
+            house.updateLastSeenTimestamp(currentTimestamp)
+        }
+    })
+}
 
 const findLinksNotInActiveHouses = (links: Array<string>, houses: Array<House>) => links.filter(link => {
         const existingHousesWithLink = houses.filter(house => house.id === link)
@@ -111,9 +127,8 @@ const createdStringToDate = (createdString) => {
 }
 
 
-const makeHousesWithOldTimestampInactive = (currentTimestamp, activeHouses) => {
-    const housesNoLongerOnline = activeHouses.filter(house => house.lastSeenTimestamp < currentTimestamp)
-    housesNoLongerOnline.forEach(house => house.deactivate())
+const findHousesWhichAreNoLongerOnline = (currentTimestamp, activeHouses) => {
+    return activeHouses.filter(house => house.properties.lastSeenTimestamp < currentTimestamp)
 }
 
 main()

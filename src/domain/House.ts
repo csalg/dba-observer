@@ -56,9 +56,9 @@ export enum HouseState {
 
 
 export interface IHouseDAO {
-    add(house: House): Promise<void>
-    addMany(houses: Array<House>): void
-    update(house: House) : void
-    updateMany(houses: Array<House>)
-    findActive(): Promise<Array<House>>
+    add(house: House)               : Promise<void>
+    addMany(houses: Array<House>)   : Promise<void>
+    update(house: House)            : Promise<void>
+    updateMany(houses: Array<House>): Promise<void>
+    findActive()                    : Promise<Array<House>>
 }
