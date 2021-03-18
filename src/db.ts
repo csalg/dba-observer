@@ -1,7 +1,6 @@
 import {House, HouseState, IHouseDAO} from "./domain/House";
 import {Sequelize, DataTypes} from "sequelize";
 import config from "./config";
-import * as assert from "assert";
 
 export class HouseSQLDAO implements IHouseDAO {
     private connection: Sequelize;
@@ -24,13 +23,21 @@ export class HouseSQLDAO implements IHouseDAO {
 
 
     async add(house: House): Promise<void> {
-        const existingHouseWithId = await this.table.findByPk(house.id)
+        const existingHouseWithId = await this.find(house.id)
         console.log(existingHouseWithId)
         if (existingHouseWithId) {
             throw "Entity already exists. Use the update method!"
         }
         const tuple = HouseSQLDAO.houseToTuple(house)
         this.table.create(tuple)
+    }
+
+    async find(id: string) : Promise<House> {
+        const query = await this.table.findByPk(id)
+        if (query) {
+            return HouseSQLDAO.tupleToHouse(query.dataValues)
+        }
+        return null
     }
 
     private static houseToTuple(house: House){
@@ -86,5 +93,6 @@ const houseSchema = {
     squareMeters: {type: DataTypes.INTEGER},
     state: {type: DataTypes.STRING},
     firstSeenTimestamp: {type: DataTypes.INTEGER},
-    lastSeenTimestamp: {type: DataTypes.INTEGER}
+    lastSeenTimestamp: {type: DataTypes.INTEGER},
+    timesStateToggled: {type: DataTypes.INTEGER},
 }

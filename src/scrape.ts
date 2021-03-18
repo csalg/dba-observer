@@ -15,8 +15,6 @@ const main = async () => {
     }
 }
 
-
-
 const mainProcedure = async (dao: IHouseDAO) => {
     if (!dao) {
         dao = new HouseSQLDAO()
@@ -25,18 +23,14 @@ const mainProcedure = async (dao: IHouseDAO) => {
     const activeHousesOnDb : Array<House> = await dao.findActive()
     const currentTimestamp = Date.now()
     updateTimestampIfHouseInLinks(currentTimestamp, scrapedLinks, activeHousesOnDb)
-    console.log(`Current timestamps ${activeHousesOnDb.map(house => house.properties.lastSeenTimestamp)}`)
 
     const scrapedLinksToUnseenHouses: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
     const newHouses: House[] = await createHousesFromLinks(currentTimestamp, scrapedLinksToUnseenHouses)
-    console.log(`Houses currently on dba ${scrapedLinks.length}, active houses ${activeHousesOnDb.length}, new houses: ${newHouses.length}`)
-    console.log("Will add new houses")
-    await dao.addMany(newHouses)
-    console.log(`Added ${newHouses.length} new houses`)
+    await upsertNewHousesToDb(dao, newHouses)
 
     const housesNoLongerOnline : House[]= findHousesWhichAreNoLongerOnline(currentTimestamp, activeHousesOnDb)
     housesNoLongerOnline.forEach(house => house.deactivate())
-    console.log(`Will deactivate ${housesNoLongerOnline.length} houses no longer online`)
+    // console.log(`Will deactivate ${housesNoLongerOnline.length} houses no longer online`)
     await dao.updateMany(housesNoLongerOnline)
 }
 
@@ -56,8 +50,7 @@ function updateTimestampIfHouseInLinks(currentTimestamp: number, links: string[]
     activeHouses.forEach(house => {
         const filteredLinks = links.filter(link => link === house.id)
         if (filteredLinks.length){
-            console.log("Found house no longer online")
-            house.updateLastSeenTimestamp(currentTimestamp)
+           house.updateLastSeenTimestamp(currentTimestamp)
         }
     })
 }
@@ -73,6 +66,18 @@ const createHousesFromLinks= async (timestamp, links) => {
     return dataFromHousePagesArr.map(scrapedData => createHouseFromScrapedData(timestamp, scrapedData))
 }
 
+async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
+    for (const newHouse of newHouses){
+        const existingHouse = await dao.find(newHouse.id)
+        if (existingHouse){
+            existingHouse.activate()
+            existingHouse.updateFromNewScrape(newHouse)
+            await dao.update(existingHouse)
+        } else {
+            await dao.add(newHouse)
+        }
+    }
+}
 
 const scrapeDataFromHousePages = async links => await Promise.all(links.map(async url => {
     const tableSelector = (x:number,y:number) => `table.table>tbody>tr:nth-child(${x})>td:nth-child(${y})`
@@ -112,10 +117,10 @@ const createHouseFromScrapedData = (timestamp, scrapedData) => {
         squareMeters: parseInt(scrapedData.squareMeters),
         state: HouseState.Active,
         title: scrapedData.title,
+        timesStateToggled: 0
     }
     return new House(scrapedData.url, properties)
 }
-
 
 const createdStringToDate = (createdString) => {
     const parsableString = createdString

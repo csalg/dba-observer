@@ -10,9 +10,11 @@ export class House {
                 _properties.firstSeenTimestamp < 0 ||
                 _properties.lastSeenTimestamp < 0
             ){
+                console.log(_properties)
                 throw "Invalid values found!"
             }
             if (!(1000 <= _properties.postcode && _properties.postcode < 10000 )){
+                console.log(_properties)
                 throw "Postcode should be between 1000 and 10000"
             }
     }
@@ -22,6 +24,24 @@ export class House {
             throw "Cannot update timestamp with an older timestamp!"
         }
         this._properties.lastSeenTimestamp = newTimestamp;
+    }
+
+    updateFromNewScrape(newHouse: House){
+        if (newHouse.id != this.id){
+            throw "Cannot update from house with different id"
+        }
+
+        this._properties = {
+            ...newHouse._properties,
+            timesStateToggled: this._properties.timesStateToggled,
+            firstSeenTimestamp: this._properties.firstSeenTimestamp,
+            created: this._properties.created
+        }
+    }
+
+    activate(){
+        this._properties.state = HouseState.Active
+        this._properties.timesStateToggled++
     }
 
     deactivate(){
@@ -46,7 +66,8 @@ export interface HouseProperties {
     squareMeters : number,
     state: HouseState,
     firstSeenTimestamp: number,
-    lastSeenTimestamp: number
+    lastSeenTimestamp: number,
+    timesStateToggled: number
 }
 
 export enum HouseState {
@@ -60,5 +81,6 @@ export interface IHouseDAO {
     addMany(houses: Array<House>)   : Promise<void>
     update(house: House)            : Promise<void>
     updateMany(houses: Array<House>): Promise<void>
+    find(id: string)                : Promise<House>
     findActive()                    : Promise<Array<House>>
 }
