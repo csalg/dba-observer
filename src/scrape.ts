@@ -137,7 +137,7 @@ const createHouseFromScrapedData = (timestamp, scrapedData) => {
         firstSeenTimestamp: timestamp,
         lastSeenTimestamp: timestamp,
         postcode: parseInt(scrapedData.postcode),
-        price: parseInt(scrapedData.price.replace(" kr.", "")),
+        price: parseInt(scrapedData.price.replace(" kr.", "").replace(".", "")),
         deposit: parseInt(scrapedData.deposit.replace(".", "")),
         rooms: parseInt(scrapedData.rooms),
         squareMeters: parseInt(scrapedData.squareMeters),
