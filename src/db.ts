@@ -16,6 +16,7 @@ export class HouseSQLDAO implements IHouseDAO {
 
         this.add = this.add.bind(this)
         this.addMany = this.addMany.bind(this)
+        this.find = this.find.bind(this)
         this.findActive = this.findActive.bind(this)
         this.update = this.update.bind(this)
         this.updateMany = this.updateMany.bind(this)

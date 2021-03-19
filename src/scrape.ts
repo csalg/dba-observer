@@ -80,22 +80,48 @@ async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
 }
 
 const scrapeDataFromHousePages = async links => await Promise.all(links.map(async url => {
-    const tableSelector = (x:number,y:number) => `table.table>tbody>tr:nth-child(${x})>td:nth-child(${y})`
-    const result = await x(url, "#content", {
-            title:       ".vip-heading>.row-fluid>h1",
-            description: ".vip-additional-text",
-            created:     ".heading-small",
-            price:       ".price-tag",
-            deposit:     tableSelector(1, 5),
-            address:     tableSelector(2, 2),
-            postcode:    tableSelector(3, 2),
-            rooms:       tableSelector(4, 2),
-            squareMeters: tableSelector(5, 2),
-        })
-    result.url = url
-    return result
+    const basicProperties = await x(url, "#content", {
+        title: ".vip-heading>.row-fluid>h1",
+        description: ".vip-additional-text",
+        created: ".heading-small",
+        price: ".price-tag"
+    })
+    const propertiesParsedFromTable = await parsePropertiesFromTable(url)
+    return {url: url, ...basicProperties, ...propertiesParsedFromTable}
+}))
+
+const parsePropertiesFromTable= async (url: string) => {
+    const tds : Array<any> = await x(url, 'td', [{val:""}])
+    const result = {
+        postcode: "0",
+        deposit: "0",
+        address: "",
+        rooms: "0",
+        squareMeters: "0"
     }
-))
+    for (let i=0; i!=tds.length-1; i++){
+        const key = tds[i]['val']
+            , val = tds[i+1]['val']
+        switch(key) {
+            case "Postnr.":
+                result.postcode = val;
+                break;
+            case "Depositum":
+                result.deposit = val;
+                break;
+            case "Adresse":
+                result.address = val
+                break;
+            case "Antal værelser":
+                result.rooms = val;
+                break;
+            case "Boligkvm.":
+                result.squareMeters = val;
+                break;
+        }
+    }
+    return result
+}
 
 
 const createHouseFromScrapedData = (timestamp, scrapedData) => {
