@@ -24,8 +24,8 @@ const mainProcedure = async (dao: IHouseDAO) => {
     const currentTimestamp = Date.now()
     updateTimestampIfHouseInLinks(currentTimestamp, scrapedLinks, activeHousesOnDb)
 
-    const scrapedLinksToUnseenHouses: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
-    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, scrapedLinksToUnseenHouses)
+    const newLinks: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
+    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, newLinks)
     await upsertNewHousesToDb(dao, newHouses)
 
     const housesNoLongerOnline : House[]= findHousesWhichAreNoLongerOnline(currentTimestamp, activeHousesOnDb)
@@ -55,10 +55,12 @@ function updateTimestampIfHouseInLinks(currentTimestamp: number, links: string[]
     })
 }
 
-const findLinksNotInActiveHouses = (links: Array<string>, houses: Array<House>) => links.filter(link => {
+const findLinksNotInActiveHouses = (links: Array<string>, houses: Array<House>) => (
+    links.filter(link => {
         const existingHousesWithLink = houses.filter(house => house.id === link)
         return existingHousesWithLink.length === 0
     })
+)
 
 
 const createHousesFromLinks= async (timestamp, links) => {
@@ -137,9 +139,9 @@ const createHouseFromScrapedData = (timestamp, scrapedData) => {
         firstSeenTimestamp: timestamp,
         lastSeenTimestamp: timestamp,
         postcode: parseInt(scrapedData.postcode),
-        price: parseInt(scrapedData.price.replace(" kr.", "").replace(".", "")),
-        deposit: parseInt(scrapedData.deposit.replace(".", "")),
-        rooms: parseInt(scrapedData.rooms),
+        price:    parseInt(scrapedData.price.replace(" kr.", "").replace(".", "")),
+        deposit:  parseInt(scrapedData.deposit.replace(".", "")),
+        rooms:    parseInt(scrapedData.rooms),
         squareMeters: parseInt(scrapedData.squareMeters),
         state: HouseState.Active,
         title: scrapedData.title,
