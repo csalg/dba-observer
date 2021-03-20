@@ -81,16 +81,24 @@ async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
     }
 }
 
-const scrapeDataFromHousePages = async links => await Promise.all(links.map(async url => {
-    const basicProperties = await x(url, "#content", {
-        title: ".vip-heading>.row-fluid>h1",
-        description: ".vip-additional-text",
-        created: ".heading-small",
-        price: ".price-tag"
-    })
-    const propertiesParsedFromTable = await parsePropertiesFromTable(url)
-    return {url: url, ...basicProperties, ...propertiesParsedFromTable}
-}))
+const scrapeDataFromHousePages = async links => {
+    const result = [];
+    for (const url of links) {
+        try {
+            const basicProperties = await x(url, "#content", {
+                title: ".vip-heading>.row-fluid>h1",
+                description: ".vip-additional-text",
+                created: ".heading-small",
+                price: ".price-tag"
+            })
+            const propertiesParsedFromTable = await parsePropertiesFromTable(url)
+            result.push({url: url, ...basicProperties, ...propertiesParsedFromTable})
+        } catch {
+            console.log(`Could not parse ${url}`)
+        }
+    }
+    return result
+}
 
 const parsePropertiesFromTable= async (url: string) => {
     const tds : Array<any> = await x(url, 'td', [{val:""}])
