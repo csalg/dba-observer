@@ -65,21 +65,21 @@ const findLinksNotInActiveHouses = (links: Array<string>, houses: Array<House>) 
 
 const createHousesFromLinks= async (timestamp, links) => {
     const dataFromHousePagesArr = await scrapeDataFromHousePages(links)
-    return dataFromHousePagesArr.map(scrapedData => createHouseFromScrapedData(timestamp, scrapedData))
+    const result = []
+    dataFromHousePagesArr.forEach(
+        scrapedData => {
+            try {
+                result.push(createHouseFromScrapedData(timestamp, scrapedData))
+            } catch(err) {
+                console.log("Error creating house from scraped data");
+                console.log(scrapedData);
+                console.log(err)
+            }
+        }
+    )
+    return result
 }
 
-async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
-    for (const newHouse of newHouses){
-        const existingHouse = await dao.find(newHouse.id)
-        if (existingHouse){
-            existingHouse.activate()
-            existingHouse.updateFromNewScrape(newHouse)
-            await dao.update(existingHouse)
-        } else {
-            await dao.add(newHouse)
-        }
-    }
-}
 
 const scrapeDataFromHousePages = async links => {
     const result = [];
@@ -133,6 +133,18 @@ const parsePropertiesFromTable= async (url: string) => {
     return result
 }
 
+async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
+    for (const newHouse of newHouses){
+        const existingHouse = await dao.find(newHouse.id)
+        if (existingHouse){
+            existingHouse.activate()
+            existingHouse.updateFromNewScrape(newHouse)
+            await dao.update(existingHouse)
+        } else {
+            await dao.add(newHouse)
+        }
+    }
+}
 
 const createHouseFromScrapedData = (timestamp, scrapedData) => {
     let created = timestamp;
