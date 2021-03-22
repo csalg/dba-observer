@@ -3,9 +3,10 @@ import XRay from 'x-ray';
 import {HouseSQLDAO} from "./db";
 import config from "./config";
 import moment from "moment";
-
+import {internalLog} from "./util";
 
 const x = XRay()
+const scrape_url = pageNumber => `https://www.dba.dk/boliger/lejebolig/lejelejlighed/side-${pageNumber}/?pris=(4000-8000)&soegfra=1051&radius=15`
 
 const main = async () => {
     const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -19,31 +20,46 @@ const mainProcedure = async (dao: IHouseDAO) => {
     if (!dao) {
         dao = new HouseSQLDAO()
     }
+    await internalLog("Will scrape links")
     const scrapedLinks: Array<string> = await scrapeLinksFromDba()
+    await internalLog(`Found ${scrapedLinks.length} houses online.`)
     const activeHousesOnDb : Array<House> = await dao.findActive()
+    await internalLog(`Found ${activeHousesOnDb.length} active houses on the database.`)
     const currentTimestamp = Date.now()
+    await internalLog("Updating timestamps of active houses which are online.")
     updateTimestampIfHouseInLinks(currentTimestamp, scrapedLinks, activeHousesOnDb)
 
     const newLinks: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
-    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, newLinks)
+    await internalLog(`Out of all the online houses, ${newLinks.length} links are new.`)
+    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, newLinks.slice(0,2))
+    await internalLog(`Parsed ${newHouses.length} new houses.`)
     await upsertNewHousesToDb(dao, newHouses)
 
     const housesNoLongerOnline : House[]= findHousesWhichAreNoLongerOnline(currentTimestamp, activeHousesOnDb)
+    await internalLog(`Found ${housesNoLongerOnline.length} houses no longer online. Will update database.`)
     housesNoLongerOnline.forEach(house => house.deactivate())
-    // console.log(`Will deactivate ${housesNoLongerOnline.length} houses no longer online`)
     await dao.updateMany(housesNoLongerOnline)
+    await internalLog('Done')
 }
 
 
 const scrapeLinksFromDba = async () => {
-    const response = await x(config.DBA_PAGE_URL, '.dbaListing', [
+    const numberOfPagesString = await x(scrape_url(1), ".pagination-right>ul>li:nth-last-child(2)")
+    // const numberOfPages = parseInt(numberOfPagesString)
+    const numberOfPages = 1
+    const linksFromPages = await  Promise.all([...Array(numberOfPages)].map(scrapeLinksFromDbaPage))
+    return Array.prototype.concat(...linksFromPages)
+}
+
+const scrapeLinksFromDbaPage = async (page) => {
+    const url = scrape_url(page)
+    const response = await x(url, '.dbaListing', [
         {
             link: '.mainContent>.listingLink@href',
         }
     ])
-        .paginate('.pagination-right>ul>li:last-child>a@href')
-        .limit(config.MAX_PAGES_TO_PARSE)
     return response.map(scrapedLink => scrapedLink.link)
+
 }
 
 function updateTimestampIfHouseInLinks(currentTimestamp: number, links: string[], activeHouses: Array<House>) {
@@ -85,6 +101,7 @@ const scrapeDataFromHousePages = async links => {
     const result = [];
     for (const url of links) {
         try {
+            await internalLog(`Will scrape data for ${url}`)
             const basicProperties = await x(url, "#content", {
                 title: ".vip-heading>.row-fluid>h1",
                 description: ".vip-additional-text",
@@ -93,6 +110,7 @@ const scrapeDataFromHousePages = async links => {
             })
             const propertiesParsedFromTable = await parsePropertiesFromTable(url)
             result.push({url: url, ...basicProperties, ...propertiesParsedFromTable})
+            await internalLog(`Successfully scraped data for ${url}`)
         } catch {
             console.log(`Could not parse ${url}`)
         }

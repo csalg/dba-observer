@@ -1,6 +1,7 @@
 import {House, HouseState, IHouseDAO} from "./domain/House";
 import {Sequelize, DataTypes} from "sequelize";
 import config from "./config";
+import {internalLog} from "./util";
 
 export class HouseSQLDAO implements IHouseDAO {
     private connection: Sequelize;
