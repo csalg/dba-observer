@@ -47,8 +47,8 @@ const scrapeLinksFromDba = async () => {
     const numberOfPagesString = await x(scrape_url(1), ".pagination-right>ul>li:nth-last-child(2)")
     const numberOfPages = parseInt(numberOfPagesString)
     // const numberOfPages = 1
-    const linksFromPages = await  Promise.all([...Array(numberOfPages)].map(scrapeLinksFromDbaPage))
-    return Array.prototype.concat(...linksFromPages)
+    const linksFromPages = await  Promise.all(Array.from(new Array(numberOfPages), (x,i) => i+1).map(scrapeLinksFromDbaPage))
+    return Array.from(new Set(Array.prototype.concat(...linksFromPages)))
 }
 
 const scrapeLinksFromDbaPage = async (page) => {
