@@ -31,7 +31,7 @@ const mainProcedure = async (dao: IHouseDAO) => {
 
     const newLinks: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
     await internalLog(`Out of all the online houses, ${newLinks.length} links are new.`)
-    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, newLinks.slice(0,2))
+    const newHouses: House[] = await createHousesFromLinks(currentTimestamp, newLinks)
     await internalLog(`Parsed ${newHouses.length} new houses.`)
     await upsertNewHousesToDb(dao, newHouses)
 
@@ -45,8 +45,8 @@ const mainProcedure = async (dao: IHouseDAO) => {
 
 const scrapeLinksFromDba = async () => {
     const numberOfPagesString = await x(scrape_url(1), ".pagination-right>ul>li:nth-last-child(2)")
-    // const numberOfPages = parseInt(numberOfPagesString)
-    const numberOfPages = 1
+    const numberOfPages = parseInt(numberOfPagesString)
+    // const numberOfPages = 1
     const linksFromPages = await  Promise.all([...Array(numberOfPages)].map(scrapeLinksFromDbaPage))
     return Array.prototype.concat(...linksFromPages)
 }
