@@ -1,1 +1,1 @@
-docker run -itd --env-file .env -v $PWD:/db dba
+docker run -itdv $PWD:/app --entrypoint ts-node dba "/app/src/scrape.ts"
