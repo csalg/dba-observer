@@ -1,8 +1,6 @@
 FROM node:15-buster as base
 
 WORKDIR /app
-COPY . .
-RUN npm install; npm install -g typescript
-RUN tsc
+RUN npm install; npm install -g typescript ts-node
 
-CMD node /app/dist/scrape.js
+ENTRYPOINT ts-node
