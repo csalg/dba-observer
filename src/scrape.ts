@@ -11,8 +11,13 @@ const scrape_url = pageNumber => `https://www.dba.dk/boliger/lejebolig/lejelejli
 const main = async () => {
     const delay = ms => new Promise(res => setTimeout(res, ms));
     while (true){
-        await mainProcedure(null)
-        await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
+        try {
+            await mainProcedure(null)
+        } catch(error) {
+            await internalLog(`Error while attempting to run procedure: ${error}`)
+        } finally {
+            await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
+        }
     }
 }
 
