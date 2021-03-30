@@ -2,8 +2,8 @@ import {House, HouseProperties, HouseState, IHouseDAO} from "./domain/House";
 import XRay from 'x-ray';
 import {HouseSQLDAO} from "./db";
 import config from "./config";
-import moment from "moment";
 import {internalLog} from "./util";
+import moment from "moment";
 
 const x = XRay()
 const scrape_url = pageNumber => `https://www.dba.dk/boliger/lejebolig/lejelejlighed/side-${pageNumber}/?pris=(4000-8000)&soegfra=1051&radius=15`
@@ -172,7 +172,7 @@ async function upsertNewHousesToDb(dao: IHouseDAO, newHouses: House[]) {
 const createHouseFromScrapedData = (timestamp, scrapedData) => {
     let created = timestamp;
     try {
-        created = createdStringToDate(scrapedData.created)
+        created = createdStringToDate(scrapedData.created, timestamp)
     } catch(err) {}
 
     const properties: HouseProperties = {
@@ -193,18 +193,44 @@ const createHouseFromScrapedData = (timestamp, scrapedData) => {
     return new House(scrapedData.url, properties)
 }
 
-const createdStringToDate = (createdString) => {
-    const parsableString = createdString
+export const createdStringToDate = (createdString, currentTimestamp) => {
+    const currentDatetime = new Date(currentTimestamp)
+    const isToday = createdString.toLowerCase().search('i dag') !== -1
+        , isYesterday = createdString.toLowerCase().search('i går') !== -1
+    if (isToday || isYesterday) {
+        const [hours, minutes] = createdString
+            .split("kl. ")
+            .pop()
+            .split(".")
+            .map(x => parseInt(x))
+        currentDatetime.setHours(hours)
+        currentDatetime.setMinutes(minutes)
+        if (isYesterday) {
+            currentDatetime.setDate(currentDatetime.getDate() - 1)
+        }
+        return currentDatetime.getTime()
+    }
+
+    const parsableString : string = createdString
         .replace("kl.", new Date().getFullYear().toString())
         .replace(". ", " ")
         .replace(".", ":")
-    let result = moment(parsableString);
-    return result.unix()
-}
+    let result = moment.utc(parsableString);
+    if (!result.valueOf()){
+        return currentTimestamp
+    }
+    console.log(result)
+    result.set("year", currentDatetime.getFullYear())
 
+    if (result.unix()*1000 > currentTimestamp){
+        result.subtract(1, 'year')
+    }
+
+    return result.unix()*1000
+}
 
 const findHousesWhichAreNoLongerOnline = (currentTimestamp, activeHouses) => {
     return activeHouses.filter(house => house.properties.lastSeenTimestamp < currentTimestamp)
 }
 
-main()
+// main()
