@@ -33,6 +33,7 @@ const mainProcedure = async (dao: IHouseDAO) => {
     const currentTimestamp = Date.now()
     await internalLog("Updating timestamps of active houses which are online.")
     updateTimestampIfHouseInLinks(currentTimestamp, scrapedLinks, activeHousesOnDb)
+    await dao.updateMany(activeHousesOnDb)
 
     const newLinks: Array<string> = findLinksNotInActiveHouses(scrapedLinks, activeHousesOnDb)
     await internalLog(`Out of all the online houses, ${newLinks.length} links are new.`)
