@@ -1,3 +1,5 @@
+'use strict';
+
 import {House, HouseProperties, HouseState} from "../src/domain/House";
 import "mocha"
 import {assert} from "chai"

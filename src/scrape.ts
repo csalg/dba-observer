@@ -9,16 +9,11 @@ const x = XRay()
 const scrape_url = pageNumber => `https://www.dba.dk/boliger/lejebolig/lejelejlighed/side-${pageNumber}/?pris=(4000-8000)&soegfra=1051&radius=15`
 
 const main = async () => {
-    const delay = ms => new Promise(res => setTimeout(res, ms));
-    while (true){
         try {
             await mainProcedure(null)
         } catch(error) {
             await internalLog(`Error while attempting to run procedure: ${error}`)
-        } finally {
-            await delay(config.SECONDS_BETWEEN_SCRAPES * 1000)
         }
-    }
 }
 
 const mainProcedure = async (dao: IHouseDAO) => {
@@ -234,4 +229,4 @@ const findHousesWhichAreNoLongerOnline = (currentTimestamp, activeHouses) => {
     return activeHouses.filter(house => house.properties.lastSeenTimestamp < currentTimestamp)
 }
 
-// main()
+main().then(() => process.exit())

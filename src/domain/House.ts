@@ -30,12 +30,14 @@ export class House {
         if (newHouse.id != this.id){
             throw "Cannot update from house with different id"
         }
+        const newProperties: HouseProperties = {...newHouse.properties}
+        delete newProperties.timesStateToggled
+        delete newProperties.firstSeenTimestamp
+        delete newProperties.created
 
         this._properties = {
-            ...newHouse._properties,
-            timesStateToggled: this._properties.timesStateToggled,
-            firstSeenTimestamp: this._properties.firstSeenTimestamp,
-            created: this._properties.created
+            ...this._properties,
+            ...newProperties,
         }
     }
 
